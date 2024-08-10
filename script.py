@@ -59,6 +59,7 @@ def scrape_product_data(product_url):
     return None
 
 def main():
+    # Add the product sitemap of the website to scrap (website-url/product-sitemap)
     sitemap_url = 'https://crosstech.com.ng/product-sitemap.xml'
     product_urls = get_product_urls(sitemap_url)
 
