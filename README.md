@@ -1,11 +1,10 @@
-Sure! Here’s the complete content formatted as a single Markdown document:
-
 ```markdown
-# Product Scraper
+#WooCommerce Product Scraper
 
-This Python script scrapes product data from a WooCommerce website using its sitemap. It retrieves product details such as name, description, images, prices, and more, and saves the data in a CSV file.
+This Python script scrapes product data from a WooCommerce website using its sitemap. It retrieves
+product details such as name, description, images, prices, and more, and saves the data in a CSV file.
 
-## Features
+##Features
 
 - Fetches product URLs from the provided sitemap.
 - Handles HTTP errors and timeouts with retries.
