@@ -36,8 +36,8 @@ pip install requests pandas beautifulsoup4
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/novavamp/product-scraper.git
-   cd product-scraper
+   git clone https://github.com/novavamp/Scraper-for-WooCommerce.git
+   cd Scraper-for-WooCommerce
    ```
 
 2. Update the `sitemap_url` variable in the `main()` function with the URL of the sitemap you want to scrape.
@@ -45,7 +45,7 @@ pip install requests pandas beautifulsoup4
 3. Run the script:
 
    ```bash
-   python product_scraper.py
+   python main.py
    ```
 
 4. The scraped data will be saved in a file named `products.csv`.
