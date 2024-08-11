@@ -40,41 +40,55 @@ def scrape_product_data(product_url):
     response = safe_request(product_url, headers)
     if response:
         soup = BeautifulSoup(response.content, 'html.parser')
-        
+
         # Extracting product details
         try:
-            title = soup.find('h1', class_='product_title').text.strip()
-            price = soup.find('span', class_='woocommerce-Price-amount').text.strip()
-            image_url = soup.find('img', class_='wp-post-image')['src']
-            description = soup.find('div', class_='woocommerce-product-details__short-description').text.strip()
-            return {
-                'Title': title,
-                'Price': price,
-                'Image URL': image_url,
-                'Description': description,
+            images = []
+            image_elements = soup.select('div.woocommerce-product-gallery__image img')
+            for img in image_elements:
+                if 'src' in img.attrs:
+                    images.append(img['src'])
+
+            image_urls = ', '.join(images) if images else None
+            
+            product_data = {
+                'Name': soup.find('h1', class_='product_title').text.strip() if soup.find('h1', class_='product_title') else None,
+                'Published': 1,
+                'Visibility in catalog': 'visible',
+                'Short description': soup.select_one('.product-section .woocommerce-product-details__short-description').get_text(separator='\n').strip() if soup.select_one('.product-section .woocommerce-product-details__short-description') else None,
+                'Description': soup.select_one('.woocommerce-tabs .panel.entry-content').get_text(separator='\n').strip() if soup.select_one('.woocommerce-tabs .panel.entry-content') else None,  # Ensure this selector is correct
+                'In stock?': 1,
+                'Backorders allowed?': 0,
+                'Weight': 0,  # Update if weight information is available
+                'Allow customer reviews?': 1,
+                'Sale price': soup.find('span', class_='woocommerce-Price-amount amount').text.strip() if soup.find('span', class_='woocommerce-Price-amount amount') else None,
+                'Regular price': soup.find('span', class_='woocommerce-Price-amount amount').text.strip() if soup.find('span', class_='woocommerce-Price-amount amount') else None,
+                'Categories': ', '.join([cat.text.strip() for cat in soup.find_all('a', rel='tag')]) if soup.find_all('a', rel='tag') else None,
+                'Tags': None,  # Update if tags information is available
+                'Images': image_urls,
+                'Position': 0,
                 'Product URL': product_url
             }
+
+            return product_data
+
         except Exception as e:
             print(f"Error extracting data from {product_url}: {e}")
     return None
 
 def main():
-    # Add the product sitemap of the website to scrap (website-url/product-sitemap)
     sitemap_url = 'https://crosstech.com.ng/product-sitemap.xml'
     product_urls = get_product_urls(sitemap_url)
-
-    total_products = len(product_urls)  # Get the total number of products
-    print(f"Total products to scrape: {total_products}\n")
-
+    
+    total_products = len(product_urls)
+    print(f"Total products to scrape: {total_products}")
+    
     products = []
-    successful_scrapes = 0  # Initialize a counter for successful scrapes
-    for url in product_urls:
-        print(f"Scraping URL: {url}")
+    for index, url in enumerate(product_urls, start=1):
+        print(f"Scraping {index}/{total_products} URL: {url}")
         product_data = scrape_product_data(url)
         if product_data:
             products.append(product_data)
-            successful_scrapes += 1  # Increment the counter for successful scrapes
-            print(f"Successfully scraped {successful_scrapes}/{total_products} products.")
 
     # Save to CSV
     df = pd.DataFrame(products)
