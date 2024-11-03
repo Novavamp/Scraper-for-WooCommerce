@@ -3,7 +3,7 @@ from scraper.sitemap_utils import get_product_urls
 from scraper.product_scraper import scrape_product_data
 
 def main():
-    sitemap_url = 'https://crosstech.com.ng/product-sitemap.xml'
+    sitemap_url = 'your-url/product-sitemap.xml' #Enter the Sitemap URL here
     product_urls = get_product_urls(sitemap_url)
     
     total_products = len(product_urls)
