@@ -37,14 +37,14 @@ def scrape_product_data(product_url):
             # Compile the product data into a dictionary
             product_data = {
                 'Name': soup.find('h1', class_='product_title').text.strip() if soup.find('h1', class_='product_title') else None,
-                'Published': 1,  # Assume the product is published
-                'Visibility in catalog': 'visible',  # Set product visibility to 'visible'
+                'Published': None,  # Source publication state is not reliably available
+                'Visibility in catalog': None,  # Do not assume catalog visibility
                 'Short description': short_description_html,
                 'Description': description_html,
-                'In stock?': 1,  # Assume the product is in stock
-                'Backorders allowed?': 0,  # Assume backorders are not allowed
-                'Weight': 0,  # Default weight value, can be updated if weight information is available
-                'Allow customer reviews?': 1,  # Assume customer reviews are allowed
+                'In stock?': None,  # Stock state requires a reliable source indicator
+                'Backorders allowed?': None,  # Backorder policy is not inferred
+                'Weight': None,  # Weight is left unset unless extracted from source markup
+                'Allow customer reviews?': None,  # Review settings are not inferred
                 'Sale price': soup.find('span', class_='woocommerce-Price-amount amount').text.strip() if soup.find('span', class_='woocommerce-Price-amount amount') else None,
                 'Regular price': soup.find('span', class_='woocommerce-Price-amount amount').text.strip() if soup.find('span', class_='woocommerce-Price-amount amount') else None,
                 'Categories': ', '.join([cat.text.strip() for cat in soup.find_all('a', rel='tag')]) if soup.find_all('a', rel='tag') else None,
