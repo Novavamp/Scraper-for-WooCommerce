@@ -1,21 +1,49 @@
-import requests
 import time
 
-def safe_request(url, headers, proxies=None):
-    for attempt in range(3):
+import requests
+
+
+RETRYABLE_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+
+
+def safe_request(url, headers=None, proxies=None, timeout=30, retries=3, backoff=1.5):
+    """Fetch a URL with bounded retries for transient network/server failures."""
+    headers = headers or {
+        "User-Agent": "WooCommerceProductResearch/1.0 (+respectful crawler)"
+    }
+    session = requests.Session()
+
+    for attempt in range(max(1, int(retries))):
         try:
-            response = requests.get(url, headers=headers, proxies=proxies, timeout=30)
+            response = session.get(
+                url,
+                headers=headers,
+                proxies=proxies,
+                timeout=timeout,
+            )
+            if response.status_code == 404:
+                return None
+            if response.status_code in RETRYABLE_STATUS_CODES:
+                if attempt + 1 >= retries:
+                    response.raise_for_status()
+                retry_after = response.headers.get("Retry-After")
+                try:
+                    delay = min(30, max(0, float(retry_after))) if retry_after else backoff * (2 ** attempt)
+                except ValueError:
+                    delay = backoff * (2 ** attempt)
+                time.sleep(delay)
+                continue
+
             response.raise_for_status()
             response.encoding = response.apparent_encoding
             return response
-        except requests.exceptions.HTTPError as e:
-            if response.status_code == 404:
-                print(f"Skipping invalid URL: {url}")
+
+        except requests.exceptions.RequestException:
+            if attempt + 1 >= retries:
                 return None
-            print(f"Attempt {attempt + 1} failed: {e}")
-            time.sleep(2)
-        except requests.exceptions.ReadTimeout as e:
-            print(f"Read timeout for {url}, attempt {attempt + 1}: {e}")
-            time.sleep(2)
-    print(f"Failed to retrieve {url} after multiple attempts.")
+            time.sleep(backoff * (2 ** attempt))
+        finally:
+            # Response bodies are consumed by the caller when successful.
+            pass
+
     return None
