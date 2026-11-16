@@ -1,65 +1,125 @@
-from bs4 import BeautifulSoup  # Importing BeautifulSoup for parsing HTML content
-from .request_utils import safe_request  # Importing a custom function for making safe HTTP requests
-from .html_utils import clean_html  # Importing a custom function to clean and process HTML content
+from urllib.parse import urlparse
 
-def scrape_product_data(product_url):
-    # Define HTTP headers to simulate a browser request
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    
-    # Make a safe HTTP GET request to the product URL
-    response = safe_request(product_url, headers)
-    
-    # If the request is successful, parse the HTML content
-    if response:
-        soup = BeautifulSoup(response.content, 'html.parser')
+from bs4 import BeautifulSoup
 
-        try:
-            # Extract product images
-            images = []
-            image_elements = soup.select('div.woocommerce-product-gallery__image img')
-            for img in image_elements:
-                if 'src' in img.attrs:
-                    images.append(img['src'])
+from .request_utils import safe_request
+from .html_utils import clean_html
 
-            # Join image URLs into a single string, or set to None if no images are found
-            image_urls = ', '.join(images) if images else None
 
-            # Extract and clean the short description
-            short_description_element = soup.select_one('.product-section .woocommerce-product-details__short-description')
-            short_description_html = clean_html(short_description_element.decode_contents().strip(), max_words=30) if short_description_element else None
-            
-            # Extract and clean the full description, retaining certain HTML tags
-            description_element = soup.select_one('.woocommerce-tabs .panel.entry-content')
-            description_html = clean_html(description_element.decode_contents().strip(), retain_h2=True) if description_element else None
-            
-            # Compile the product data into a dictionary
-            product_data = {
-                'Name': soup.find('h1', class_='product_title').text.strip() if soup.find('h1', class_='product_title') else None,
-                'Published': None,  # Source publication state is not reliably available
-                'Visibility in catalog': None,  # Do not assume catalog visibility
-                'Short description': short_description_html,
-                'Description': description_html,
-                'In stock?': None,  # Stock state requires a reliable source indicator
-                'Backorders allowed?': None,  # Backorder policy is not inferred
-                'Weight': None,  # Weight is left unset unless extracted from source markup
-                'Allow customer reviews?': None,  # Review settings are not inferred
-                'Sale price': soup.find('span', class_='woocommerce-Price-amount amount').text.strip() if soup.find('span', class_='woocommerce-Price-amount amount') else None,
-                'Regular price': soup.find('span', class_='woocommerce-Price-amount amount').text.strip() if soup.find('span', class_='woocommerce-Price-amount amount') else None,
-                'Categories': ', '.join([cat.text.strip() for cat in soup.find_all('a', rel='tag')]) if soup.find_all('a', rel='tag') else None,
-                'Tags': None,  # Tags can be updated if information is available
-                'Images': image_urls,
-                'Position': 0,  # Default position value
-                'Product URL': product_url
-            }
-
-            # Return the compiled product data
-            return product_data
-
-        except Exception as e:
-            # Print an error message if data extraction fails
-            print(f"Error extracting data from {product_url}: {e}")
-    
-    # Return None if the request fails or data extraction encounters an error
+def _text(soup, selectors):
+    for selector in selectors:
+        node = soup.select_one(selector)
+        if node:
+            value = node.get_text(" ", strip=True)
+            if value:
+                return value
     return None
+
+
+def _attribute(soup, selectors, attribute):
+    for selector in selectors:
+        node = soup.select_one(selector)
+        if node and node.get(attribute):
+            return node.get(attribute).strip()
+    return None
+
+
+def scrape_product_data(product_url, *, request_options=None):
+    """Extract product data from a WooCommerce product page.
+
+    Import-sensitive fields remain unset when the source page does not expose
+    a reliable value. Callers can pass request options such as headers/proxies.
+    """
+    parsed = urlparse(product_url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError("product_url must be an absolute HTTP(S) URL")
+
+    response = safe_request(product_url, **(request_options or {}))
+    if response is None:
+        return None
+
+    soup = BeautifulSoup(response.content, "html.parser")
+    title = _text(soup, ["h1.product_title", "h1.entry-title"])
+    if not title:
+        return None
+
+    image_urls = []
+    for image in soup.select(
+        ".woocommerce-product-gallery__image img, "
+        ".woocommerce-product-gallery img, img.wp-post-image"
+    ):
+        src = image.get("data-src") or image.get("data-large_image") or image.get("src")
+        if src and src not in image_urls:
+            image_urls.append(src)
+
+    short_node = soup.select_one(
+        ".product-section .woocommerce-product-details__short-description, "
+        ".woocommerce-product-details__short-description"
+    )
+    full_node = soup.select_one(
+        ".woocommerce-tabs .panel.entry-content, "
+        "#tab-description, .woocommerce-Tabs-panel--description"
+    )
+    short_description = (
+        clean_html(short_node.decode_contents().strip(), max_words=30)
+        if short_node else None
+    )
+    description = (
+        clean_html(full_node.decode_contents().strip(), retain_h2=True)
+        if full_node else None
+    )
+
+    regular_price = _attribute(
+        soup,
+        ["del .woocommerce-Price-amount", ".summary del .amount"],
+        "data-price",
+    ) or _text(soup, ["del .woocommerce-Price-amount", ".summary del .amount"])
+
+    sale_price = _attribute(
+        soup,
+        ["ins .woocommerce-Price-amount", ".summary ins .amount"],
+        "data-price",
+    ) or _text(soup, ["ins .woocommerce-Price-amount", ".summary ins .amount"])
+
+    if not regular_price and not sale_price:
+        current_price = _text(soup, [".summary .price .woocommerce-Price-amount", ".summary .price"])
+        regular_price = current_price
+
+    stock_node = soup.select_one(".stock")
+    stock_text = stock_node.get_text(" ", strip=True).lower() if stock_node else ""
+    stock_value = None
+    if stock_node and ("out of stock" in stock_text):
+        stock_value = 0
+    elif stock_node and ("in stock" in stock_text):
+        stock_value = 1
+
+    weight = _text(soup, [".product_weight", ".woocommerce-product-attributes-item--weight .woocommerce-product-attributes-item__value"])
+    categories = [
+        item.get_text(" ", strip=True)
+        for item in soup.select(".posted_in a, .product_meta .posted_in a")
+        if item.get_text(" ", strip=True)
+    ]
+    tags = [
+        item.get_text(" ", strip=True)
+        for item in soup.select(".tagged_as a, .product_meta .tagged_as a")
+        if item.get_text(" ", strip=True)
+    ]
+
+    return {
+        "Name": title,
+        "Published": None,
+        "Visibility in catalog": None,
+        "Short description": short_description,
+        "Description": description,
+        "In stock?": stock_value,
+        "Backorders allowed?": None,
+        "Weight": weight,
+        "Allow customer reviews?": None,
+        "Sale price": sale_price,
+        "Regular price": regular_price,
+        "Categories": ", ".join(categories) if categories else None,
+        "Tags": ", ".join(tags) if tags else None,
+        "Images": ", ".join(image_urls) if image_urls else None,
+        "Position": 0,
+        "Product URL": product_url,
+    }
