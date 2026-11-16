@@ -1,66 +1,51 @@
-<div align="center">
+# WooCommerce Product Data Scraper
 
-# WooCommerce Product Scraper
-
-![Python](https://img.shields.io/badge/Python-automation-3776AB?logo=python&logoColor=white) ![WooCommerce](https://img.shields.io/badge/WooCommerce-data-96588A?logo=woocommerce&logoColor=white)
-
-</div>
-
-This Python script scrapes product data from a WooCommerce website using its sitemap. It retrieves
-product details such as name, description, images, prices, and more, and saves the data in a CSV file.
+A Python utility that reads product pages from WooCommerce-powered websites and maps selected product information into a dictionary suitable for further processing or CSV export.
 
 ## Features
 
-- Fetches product URLs from the provided sitemap.
-- Handles HTTP errors and timeouts with retries.
-- Extracts essential product information, including:
-  - Product name
-  - Short description
-  - Detailed description
-  - Sale price
-  - Regular price
-  - Categories
-  - Image URLs
-- Saves the scraped data to a CSV file.
+- Retrieve product pages with request timeouts and retry attempts.
+- Parse product titles, descriptions, images, prices, and taxonomy labels.
+- Clean HTML descriptions for downstream catalogue imports.
+- Read product URLs from XML sitemaps.
 
-## Requirements
+## Stack
 
-- Python 3.x
-- `requests` library
-- `pandas` library
-- `beautifulsoup4` library
+- Python
+- Requests
+- Beautiful Soup
+- Beautiful Soup XML parsing
 
-You can install the required libraries using pip:
+## Setup
 
 ```bash
-pip install requests pandas beautifulsoup4
+git clone https://github.com/Novavamp/Scraper-for-WooCommerce.git
+cd Scraper-for-WooCommerce
+python -m venv .venv
 ```
 
-## Usage
+Activate the virtual environment, then install dependencies:
 
-1. Clone this repository:
+```bash
+pip install -r requirements.txt
+```
 
-   ```bash
-   git clone https://github.com/novavamp/Scraper-for-WooCommerce.git
-   cd Scraper-for-WooCommerce
-   ```
+## Current limitations
 
-2. Update the `sitemap_url` variable in the `main()` function with the URL of the sitemap you want to scrape.
+WooCommerce themes and plugins can change the markup used for product data. The current scraper relies on common WooCommerce CSS selectors and should be validated against each target site.
 
-3. Run the script:
+Some import fields in the current implementation are defaults rather than values verified from the source page. In particular, publication state, catalogue visibility, stock state, backorders, weight, and customer-review settings should not be assumed for a real catalogue. Review and correct these values before importing the generated data.
 
-   ```bash
-   python main.py
-   ```
+The request helper currently retries selected HTTP and timeout failures. It should be extended to handle connection errors and other transient failures consistently, and to use server-provided retry guidance where appropriate.
 
-4. The scraped data will be saved in a file named `products.csv`.
+## Responsible use
 
-## Notes
+Only collect product information where you have permission. Respect website terms, robots guidance, request limits, and applicable laws. Avoid collecting personal information.
 
-- Make sure to comply with the website's `robots.txt` and scraping policies.
-- This script is designed for educational purposes and should be used responsibly.
-- If you encounter issues, ensure that the CSS selectors used in the script match the structure of the target website.
+## Project structure
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- `main.py` — application entry point.
+- `scraper/product_scraper.py` — product-page extraction.
+- `scraper/request_utils.py` — HTTP request helper.
+- `scraper/html_utils.py` — description cleanup.
+- `scraper/sitemap_utils.py` — sitemap URL extraction.
