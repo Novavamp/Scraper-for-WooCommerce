@@ -1,5 +1,10 @@
-```markdown
+<div align="center">
+
 # WooCommerce Product Scraper
+
+![Python](https://img.shields.io/badge/Python-automation-3776AB?logo=python&logoColor=white) ![WooCommerce](https://img.shields.io/badge/WooCommerce-data-96588A?logo=woocommerce&logoColor=white)
+
+</div>
 
 This Python script scrapes product data from a WooCommerce website using its sitemap. It retrieves
 product details such as name, description, images, prices, and more, and saves the data in a CSV file.
@@ -59,4 +64,3 @@ pip install requests pandas beautifulsoup4
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-```
